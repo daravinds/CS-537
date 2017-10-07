@@ -1,0 +1,112 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <string.h>
+#include <errno.h>
+
+int isBuiltInCommand(char* token);
+void executeBuiltInCommand(char** argv, pid_t backgroundPids[], int bgPidCount);
+void executeCommand(char** argv, int isBackground, int backgroundPids[], int* bgPidCount);
+void printErrorMessage();
+
+int main() {
+  pid_t backgroundPids[20];
+  memset(backgroundPids, -1, 20 * sizeof(pid_t));
+  char* command;
+  char** argv;
+  command = malloc(128 * sizeof(char));
+  unsigned int stdin = STDIN_FILENO;
+  unsigned int stdout = STDOUT_FILENO;
+  unsigned int commandCount = 1;
+  int isBackground = 0, bgPidCount = 0;
+  argv = malloc(128 * sizeof(char*));
+
+  while(1) {
+    isBackground = 0;
+    fflush(fdopen(stdout, "w"));
+    printf("mysh (%u)> ", commandCount);
+    char* success = fgets(command, 128, fdopen(stdin, "r"));
+    if(success == NULL) {
+      printErrorMessage();
+      exit(EXIT_FAILURE);
+    }
+    success[strlen(success) - 1] = '\0';
+    char *token;
+    int tokenCount = 0;
+    while((token = strtok_r(command, " \t", &command))) {
+      argv[tokenCount] = strdup(token);
+      tokenCount++;
+    }
+    argv[tokenCount] = NULL;
+
+    if(tokenCount == 0)
+      continue;
+    if(strcmp(argv[tokenCount - 1], "&") == 0) {
+      isBackground = 1;
+      signal(SIGCHLD, SIG_IGN);
+      argv[tokenCount - 1] = NULL;
+    }
+
+    if(isBuiltInCommand(argv[0])) {
+      executeBuiltInCommand(argv, backgroundPids, bgPidCount);
+    } else {
+      executeCommand(argv, isBackground, backgroundPids, &bgPidCount);
+    }
+    commandCount++;
+  }
+  exit(EXIT_SUCCESS);
+}
+
+int isBuiltInCommand(char* token) {
+  if(strcmp(token, "exit") == 0 || strcmp(token, "pwd") == 0 || strcmp(token, "cd") == 0) {
+    return 1;
+  }
+  return 0;
+}
+
+void executeBuiltInCommand(char** argv, pid_t backgroundPids[], int bgPidCount) {
+  int i;
+  if(strcmp(argv[0], "pwd") == 0) {
+    char *cwd = malloc(128);
+    printf("%s\n", getcwd(cwd, 128));
+  } else if (strcmp(argv[0], "exit") == 0) {
+    for(i = 0; i < bgPidCount; i++) {
+      printf("%d  ", backgroundPids[i]);
+      if(kill(backgroundPids[i], 0) == 0)
+        kill(backgroundPids[i], SIGKILL);
+    }
+    exit(EXIT_SUCCESS);
+  } else if (strcmp(argv[0], "cd") == 0) {
+    if(argv[1] == NULL) {
+      chdir(getenv("HOME"));
+    } else {
+      chdir(argv[1]);
+    }
+  }
+}
+
+void executeCommand(char** argv, int isBackground, int backgroundPids[], int* bgPidCount) {
+  pid_t pid = fork();
+  if(pid < 0) {
+    printErrorMessage();
+    exit(EXIT_FAILURE);
+  }
+  else if (pid == 0) {
+    execvp(argv[0], argv);
+    printErrorMessage();
+    exit(EXIT_FAILURE);
+  }
+  else
+    if(isBackground){
+      backgroundPids[(*bgPidCount)++] = pid;
+    }
+    else
+      (void) waitpid(pid, NULL, 0);
+}
+
+void printErrorMessage() {
+  char errorMessage[30] = "An error has occurred\n";
+  write(STDERR_FILENO, errorMessage, strlen(errorMessage));
+}
