@@ -22,7 +22,7 @@ void p(int a);
 
 int main(int arg_count, char *argv_main[]) {
   if(arg_count != 1) {
-    printErrorMessage();p(1);
+    printErrorMessage();
     exit(1);
   }
 
@@ -30,17 +30,13 @@ int main(int arg_count, char *argv_main[]) {
   memset(backgroundPids, -1, MAX_BG_JOBS * sizeof(pid_t));
   char command[2 * MAX_COMMAND_LENGTH];
   char** argv;
-//  command = malloc(2 * MAX_COMMAND_LENGTH * sizeof(char));
-  if(command == NULL) {
-    printErrorMessage();p(2);
-    exit(1);
-  }
   
   unsigned int commandCount = 1;
-  int isBackground = 0, bgPidCount = 0, isPipeOperation = 0;
+  unsigned int isBackground = 0, bgPidCount = 0, isPipeOperation = 0;
+
   argv = malloc(MAX_COMMAND_LENGTH * sizeof(char*));
   if(argv == NULL) {
-    printErrorMessage();p(3);
+    printErrorMessage();
     exit(1);
   }
 
@@ -54,24 +50,23 @@ int main(int arg_count, char *argv_main[]) {
     command[strlen(command) - 1] = '\0';
     if(strlen(command) > MAX_COMMAND_LENGTH) {
       commandCount++;
-      printErrorMessage();p(3);
+      printErrorMessage();
       continue;
     }
+
     char *token;
     int inputRedirectionIndex = -1, outputRedirectionIndex = -1;
     int tokenCount = 0;
-
     char* saveptr, *commandPtr;
     commandPtr = command;
+
     while((token = strtok_r(commandPtr, " ", &saveptr))) {
       if((isPipeOperation == 0) && (strcmp(token, "|") == 0))
         isPipeOperation = 1;
-//      if(tokenCount > 0) {
-        if(strcmp(token, "<") == 0)
-          inputRedirectionIndex = tokenCount;
-        else if(strcmp(token, ">") == 0)
-          outputRedirectionIndex = tokenCount;
-  //    }
+      if(strcmp(token, "<") == 0)
+        inputRedirectionIndex = tokenCount;
+      else if(strcmp(token, ">") == 0)
+        outputRedirectionIndex = tokenCount;
       argv[tokenCount] = token;
       tokenCount++;
       commandPtr = NULL;
@@ -97,7 +92,7 @@ int main(int arg_count, char *argv_main[]) {
     inputFile = outputFile = NULL;
     int valid = validInputAndOutputFiles(argv, inputRedirectionIndex, outputRedirectionIndex, &inputFile, &outputFile);
     if(valid == 0) {
-      printErrorMessage();p(4);
+      printErrorMessage();
       commandCount++;
       continue;
     }

@@ -5,6 +5,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "pstat.h"
 
 struct {
   struct spinlock lock;
@@ -16,6 +17,10 @@ static struct proc *initproc;
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
+
+int timeSlice[4] = { -1, 32, 16, 8 };
+int i, j;
+
 
 static void wakeup1(void *chan);
 
@@ -44,6 +49,11 @@ allocproc(void)
 
 found:
   p->state = EMBRYO;
+  p->priority = 3;
+  for(j=0; j<4; j++) {
+    p->completed_ticks[j] = 0;
+    p->wait_ticks[j] = 0;
+  }
   p->pid = nextpid++;
   release(&ptable.lock);
 
@@ -245,6 +255,21 @@ wait(void)
   }
 }
 
+int findNextProcToRunInQueue(int priority){
+  int index = 0;
+  struct proc currp;
+  for(index = 0; index < NPROC; index++) {
+    currp = ptable.proc[index];
+    if(currp.priority == priority) {
+      //if(priority == 0)
+        //cprintf("PID: %d Index: %d State: %d\n", currp.pid, index, currp.state);
+      if(currp.state == RUNNABLE)// && (currp.priority == priority))
+        return index;
+    }
+  }
+  return -1;
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -255,33 +280,63 @@ wait(void)
 void
 scheduler(void)
 {
-  struct proc *p;
-
+  struct proc* nextProcToRun;
+  struct proc* process;
+  int indexOfnextprocToRun = -1;
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&cpu->scheduler, proc->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      proc = 0;
+    indexOfnextprocToRun = -1;
+    for(int priority = 3; priority >= 0; priority--) {
+      indexOfnextprocToRun = findNextProcToRunInQueue(priority);
+      //cprintf("Index: %d\n", indexOfnextprocToRun);
+      if(indexOfnextprocToRun != -1) {
+        nextProcToRun = &ptable.proc[indexOfnextprocToRun];
+        //cprintf("CPU allocated to %s with PID: %d\n", nextprocToRun->name, nextprocToRun->pid);
+        break;
+      }
     }
-    release(&ptable.lock);
+    if(indexOfnextprocToRun == -1) {
+      release(&ptable.lock);
+      continue;
+    }
+    
+    for(int index = 0; index < NPROC; index++) {
+      process = &ptable.proc[index];
+      if(process->state != RUNNABLE)
+        continue;
+      if(index == indexOfnextprocToRun) { // Zero out waiting ticks for picked process.
+        //cprintf("PID: %d Process to run: %s Priority: %d\t", nextProcToRun->pid, nextProcToRun->name, nextProcToRun->priority);
+        //cprintf("Wait ticks: %d ", nextProcToRun->wait_ticks[nextProcToRun->priority]);
+        //cprintf("Completed ticks: %d\n", nextProcToRun->completed_ticks[nextProcToRun->priority]);
+        process->wait_ticks[process->priority] = 0;
+        process->completed_ticks[process->priority]++;
+        if((process->priority != 0) && (process->completed_ticks[process->priority] % timeSlice[process->priority] == 0)) {
+//          process->completed_ticks[process->priority] = 0;
+          process->priority--;
+        }
+      }
+      else {  // Increment waiting ticks for other processes.
+        process->wait_ticks[process->priority]++;
+        int maxTickstoWaitForPromotion = timeSlice[process->priority] > 0 ? (timeSlice[process->priority] * 10) : 500;
+        if(process->wait_ticks[process->priority] == maxTickstoWaitForPromotion) {
+          process->wait_ticks[process->priority] = 0;
+          process->priority++;
+        }
+      }
+    }
 
+    // Context switch
+    nextProcToRun = &ptable.proc[indexOfnextprocToRun];
+    proc = nextProcToRun;
+    switchuvm(nextProcToRun);
+    nextProcToRun->state = RUNNING;
+    swtch(&cpu->scheduler, proc->context);
+    switchkvm();
+    proc = 0;
+    release(&ptable.lock);
   }
 }
 
@@ -443,4 +498,26 @@ procdump(void)
   }
 }
 
+int get_proc_info(struct pstat* process_stat)
+{
+  int i = 0, j;
+  struct proc *process;
+  acquire(&ptable.lock);
 
+  for(process = ptable.proc; process < &ptable.proc[NPROC]; process++)
+  {
+    process_stat->inuse[i] = (process->state != UNUSED);
+    process_stat->pid[i] = process->pid;
+    process_stat->priority[i] = process->priority;
+    process_stat->state[i] = process->state;
+    for(j = 0; j < 4; j++) {
+      process_stat->ticks[i][j] = process->completed_ticks[j];
+      process_stat->wait_ticks[i][j] = process->wait_ticks[j];
+    }
+    i++;
+  }
+
+  release(&ptable.lock);
+  return 0;
+
+}

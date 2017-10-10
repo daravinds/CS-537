@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "syscall.h"
 #include "sysfunc.h"
+#include "pstat.h"
 
 // User code makes a system call with INT T_SYSCALL.
 // System call number in %eax.
@@ -103,6 +104,7 @@ static int (*syscalls[])(void) = {
 [SYS_wait]    sys_wait,
 [SYS_write]   sys_write,
 [SYS_uptime]  sys_uptime,
+[SYS_getpinfo]  sys_getpinfo
 };
 
 // Called on a syscall trap. Checks that the syscall number (passed via eax)
