@@ -20,7 +20,7 @@ extern void trapret(void);
 
 int timeSlice[4] = { -1, 32, 16, 8 };
 int i, j;
-
+int indexOfPrevZeroProc = -1;
 
 static void wakeup1(void *chan);
 
@@ -261,10 +261,14 @@ int findNextProcToRunInQueue(int priority){
   for(index = 0; index < NPROC; index++) {
     currp = ptable.proc[index];
     if(currp.priority == priority) {
-      //if(priority == 0)
-        //cprintf("PID: %d Index: %d State: %d\n", currp.pid, index, currp.state);
+      // if(priority == 0)
+      //   cprintf("PID: %d Index: %d State: %d\n", currp.pid, index, currp.state);
       if(currp.state == RUNNABLE)// && (currp.priority == priority))
+      {
+        if(ptable.proc[indexOfPrevZeroProc].state == RUNNABLE && priority == 0)
+          index = indexOfPrevZeroProc;
         return index;
+      }
     }
   }
   return -1;
@@ -282,54 +286,62 @@ scheduler(void)
 {
   struct proc* nextProcToRun;
   struct proc* process;
-  int indexOfnextprocToRun = -1;
+  int indexOfNextProcToRun = -1;
+  int priority;
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    indexOfnextprocToRun = -1;
-    for(int priority = 3; priority >= 0; priority--) {
-      indexOfnextprocToRun = findNextProcToRunInQueue(priority);
-      //cprintf("Index: %d\n", indexOfnextprocToRun);
-      if(indexOfnextprocToRun != -1) {
-        nextProcToRun = &ptable.proc[indexOfnextprocToRun];
+    indexOfNextProcToRun = -1;
+    for(priority = 3; priority >= 0; priority--) {
+      indexOfNextProcToRun = findNextProcToRunInQueue(priority);
+      if(indexOfNextProcToRun != -1) {
+        nextProcToRun = &ptable.proc[indexOfNextProcToRun];
         //cprintf("CPU allocated to %s with PID: %d\n", nextprocToRun->name, nextprocToRun->pid);
         break;
       }
     }
-    if(indexOfnextprocToRun == -1) {
+
+    if(indexOfNextProcToRun == -1) {
       release(&ptable.lock);
       continue;
     }
-    
+    if(priority == 0)
+      indexOfPrevZeroProc = indexOfNextProcToRun;
+
     for(int index = 0; index < NPROC; index++) {
       process = &ptable.proc[index];
       if(process->state != RUNNABLE)
         continue;
-      if(index == indexOfnextprocToRun) { // Zero out waiting ticks for picked process.
-        //cprintf("PID: %d Process to run: %s Priority: %d\t", nextProcToRun->pid, nextProcToRun->name, nextProcToRun->priority);
-        //cprintf("Wait ticks: %d ", nextProcToRun->wait_ticks[nextProcToRun->priority]);
-        //cprintf("Completed ticks: %d\n", nextProcToRun->completed_ticks[nextProcToRun->priority]);
+      if(index == indexOfNextProcToRun) { // Zero out waiting ticks for picked process.
+        // cprintf("PID: %d Process to run: %s Priority: %d\t", nextProcToRun->pid, nextProcToRun->name, nextProcToRun->priority);
+        // cprintf("Wait ticks: %d ", nextProcToRun->wait_ticks[nextProcToRun->priority]);
+        // cprintf("Completed ticks: %d\n", nextProcToRun->completed_ticks[nextProcToRun->priority]);
         process->wait_ticks[process->priority] = 0;
         process->completed_ticks[process->priority]++;
-        if((process->priority != 0) && (process->completed_ticks[process->priority] % timeSlice[process->priority] == 0)) {
-//          process->completed_ticks[process->priority] = 0;
-          process->priority--;
+        if(process->priority != 0) {
+          if(process->completed_ticks[process->priority] % timeSlice[process->priority] == 0) {
+            // process->completed_ticks[process->priority] = 0;
+            process->priority--;
+          }
         }
       }
       else {  // Increment waiting ticks for other processes.
         process->wait_ticks[process->priority]++;
-        int maxTickstoWaitForPromotion = timeSlice[process->priority] > 0 ? (timeSlice[process->priority] * 10) : 500;
-        if(process->wait_ticks[process->priority] == maxTickstoWaitForPromotion) {
-          process->wait_ticks[process->priority] = 0;
-          process->priority++;
+        if(process->priority != 3) {
+          int maxTicksToWaitForPromotion = timeSlice[process->priority] > 0 ? (timeSlice[process->priority] * 10) : 500;
+          if(process->wait_ticks[process->priority] == maxTicksToWaitForPromotion) {
+            process->wait_ticks[process->priority] = 0;
+            process->priority++;
+          }
         }
       }
     }
 
     // Context switch
-    nextProcToRun = &ptable.proc[indexOfnextprocToRun];
+    nextProcToRun = &ptable.proc[indexOfNextProcToRun];
     proc = nextProcToRun;
     switchuvm(nextProcToRun);
     nextProcToRun->state = RUNNING;
