@@ -12,7 +12,7 @@
 
 int isBuiltInCommand(char* token);
 void executeBuiltInCommand(char** argv, pid_t backgroundPids[], int bgPidCount);
-void executeCommand(char** argv, int isBackground, int backgroundPids[], int* bgPidCount, char* inputFile, char* outputFile);
+void executeCommand(char** argv, int isBackground, int backgroundPids[], unsigned int* bgPidCount, char* inputFile, char* outputFile);
 void printErrorMessage();
 int validInputAndOutputFiles(char** argv, int ipIndex, int opIndex, char** ipFile, char** opFile);
 void setInputFd(char* inputFile);
@@ -147,7 +147,7 @@ void executeBuiltInCommand(char** argv, pid_t backgroundPids[], int bgPidCount) 
   }
 }
 
-void executeCommand(char** argv, int isBackground, int backgroundPids[], int* bgPidCount, char* inputFile, char* outputFile) {
+void executeCommand(char** argv, int isBackground, int backgroundPids[], unsigned int* bgPidCount, char* inputFile, char* outputFile) {
   pid_t pid = fork();
   if(pid < 0) {
     printErrorMessage();p(5);
