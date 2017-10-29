@@ -1,0 +1,28 @@
+ERROR:root:command failed with cmd: ['ssh', '-o', 'ConnectTimeout=5', 'royal-01', 'cd']
+Traceback (most recent call last):
+  File "/u/c/s/cs537-1/ta/autograder/bettergrader.py", line 22, in test_command
+    rc = subprocess.check_call(cmd)
+  File "/usr/lib/python2.7/subprocess.py", line 540, in check_call
+    raise CalledProcessError(retcode, cmd)
+CalledProcessError: Command '['ssh', '-o', 'ConnectTimeout=5', 'royal-01', 'cd']' returned non-zero exit status 255
+ERROR:root:command failed with cmd: ['ssh', '-o', 'ConnectTimeout=5', 'royal-12', 'cd']
+Traceback (most recent call last):
+  File "/u/c/s/cs537-1/ta/autograder/bettergrader.py", line 22, in test_command
+    rc = subprocess.check_call(cmd)
+  File "/usr/lib/python2.7/subprocess.py", line 540, in check_call
+    raise CalledProcessError(retcode, cmd)
+CalledProcessError: Command '['ssh', '-o', 'ConnectTimeout=5', 'royal-12', 'cd']' returned non-zero exit status 255
+ERROR:root:command failed with cmd: ['ssh', '-o', 'ConnectTimeout=5', 'royal-01', 'cd']
+Traceback (most recent call last):
+  File "/u/c/s/cs537-1/ta/autograder/bettergrader.py", line 22, in test_command
+    rc = subprocess.check_call(cmd)
+  File "/usr/lib/python2.7/subprocess.py", line 540, in check_call
+    raise CalledProcessError(retcode, cmd)
+CalledProcessError: Command '['ssh', '-o', 'ConnectTimeout=5', 'royal-01', 'cd']' returned non-zero exit status 255
+ERROR:root:command failed with cmd: ['ssh', '-o', 'ConnectTimeout=5', 'royal-12', 'cd']
+Traceback (most recent call last):
+  File "/u/c/s/cs537-1/ta/autograder/bettergrader.py", line 22, in test_command
+    rc = subprocess.check_call(cmd)
+  File "/usr/lib/python2.7/subprocess.py", line 540, in check_call
+    raise CalledProcessError(retcode, cmd)
+CalledProcessError: Command '['ssh', '-o', 'ConnectTimeout=5', 'royal-12', 'cd']' returned non-zero exit status 255

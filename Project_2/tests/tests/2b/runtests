@@ -1,0 +1,4 @@
+#!/bin/bash
+base=~cs537-1/ta/tests/2b
+python $base/project2b.py $1 --test-path $base $@ | tee -i runtests.log
+exit $?

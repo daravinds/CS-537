@@ -1,0 +1,47 @@
+starting build
+
+**********************************************************************
+
+Test build
+build project using make
+
+**********************************************************************
+Trying to clean project using make clean
+make clean
+rm -f runtests*
+rm -f *.pyc
+Trying to build project using make
+make
+echo "#!/bin/bash" > runtests
+echo "base=~cs537-1/ta/tests/2a" >> runtests
+echo "python \$base/project2a.py --test-path \$base \$@"\
+	" | tee runtests.log" >> runtests
+echo "exit \$?" >> runtests
+chmod a+x runtests
+gcc mysh.c -o mysh -Wall -std=gnu11
+gcc: error: mysh.c: No such file or directory
+gcc: fatal error: no input files
+compilation terminated.
+
+
+test build PASSED
+ (build project using make)
+
+starting exit
+
+**********************************************************************
+
+Test exit
+run exit
+
+**********************************************************************
+/tmp/tmpKvlNoa/p/./mysh
+OSError: [Errno 2] No such file or directory
+
+
+test exit FAILED (0 of 5)
+ (run exit)
+ Unexpected exception [Errno 2] No such file or directory
+
+Skipped 22 tests.
+To keep testing after failing a test, use flag '-c' or '--continue'

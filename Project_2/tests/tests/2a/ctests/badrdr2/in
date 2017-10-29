@@ -1,0 +1,2 @@
+cat < this_does_not_exist.txt
+exit

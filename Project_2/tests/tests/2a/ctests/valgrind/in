@@ -1,0 +1,11 @@
+pwd
+date
+ps > output.txt
+wc < output.txt
+uname | tr a-z A-Z
+ls /bad
+ls -l &
+
+cd /u
+pwd
+exit

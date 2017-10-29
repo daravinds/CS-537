@@ -1,0 +1,3 @@
+cat < input1.txt
+cat < input2.txt
+exit
