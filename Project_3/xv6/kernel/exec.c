@@ -32,7 +32,7 @@ exec(char *path, char **argv)
     goto bad;
 
   // Load program into memory.
-  sz = 0;
+  sz = PGSIZE * 2;
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
     if(readi(ip, (char*)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
@@ -52,9 +52,9 @@ exec(char *path, char **argv)
   sz = PGROUNDUP(sz);
   if((sz = allocuvm(pgdir, sz, sz + PGSIZE)) == 0)
     goto bad;
-
   // Push argument strings, prepare rest of stack in ustack.
   sp = sz;
+
   for(argc = 0; argv[argc]; argc++) {
     if(argc >= MAXARG)
       goto bad;
@@ -69,7 +69,6 @@ exec(char *path, char **argv)
   ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = argc;
   ustack[2] = sp - (argc+1)*4;  // argv pointer
-
   sp -= (3+argc+1) * 4;
   if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0)
     goto bad;
