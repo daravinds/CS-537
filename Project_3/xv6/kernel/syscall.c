@@ -17,8 +17,13 @@
 int
 fetchint(struct proc *p, uint addr, int *ip)
 {
-  if(addr >= p->sz || addr+4 > p->sz)
+
+  uint top_of_stack = USERTOP - p->stack_sz;
+  if(addr < PGSIZE*2 || addr >= USERTOP || addr+4 > USERTOP || ((addr >= p->sz || addr+4 > p->sz) && (addr < top_of_stack))) {
+    cprintf("fetchint ");
+    cprintf("addr: %d, addr+4: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, addr+4, USERTOP, p->sz, top_of_stack);
     return -1;
+  }
   *ip = *(int*)(addr);
   return 0;
 }
@@ -29,15 +34,23 @@ fetchint(struct proc *p, uint addr, int *ip)
 int
 fetchstr(struct proc *p, uint addr, char **pp)
 {
+  uint top_of_stack = USERTOP - p->stack_sz;
   char *s, *ep;
-
-  if(addr >= p->sz)
+  if(addr < PGSIZE*2 || addr >= USERTOP || ((addr >= p->sz) && (addr < top_of_stack))) {
+    cprintf("fetchstr ");
+    cprintf("addr: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, USERTOP, p->sz, top_of_stack);
     return -1;
+  }
   *pp = (char*)addr;
-  ep = (char*)p->sz;
+  if(addr >= top_of_stack) {
+    ep = (char*)USERTOP;
+  } else {
+    ep = (char*)p->sz;
+  }
   for(s = *pp; s < ep; s++)
-    if(*s == 0)
+    if(*s == 0){
       return s - *pp;
+    }
   return -1;
 }
 
@@ -56,10 +69,17 @@ argptr(int n, char **pp, int size)
 {
   int i;
   
-  if(argint(n, &i) < 0)
+  if(argint(n, &i) < 0) {
     return -1;
-  if((uint)i >= proc->sz || (uint)i+size > proc->sz)
+  }
+  uint top_of_stack = USERTOP - proc->stack_sz;
+  uint addr = (uint)i;
+  // cprintf("i: %d, proc->sz: %d, size: %d\n", (uint)i, proc->sz, size);
+  if(addr < PGSIZE*2 || addr >= USERTOP || addr + size > USERTOP  || ((addr >= proc->sz || addr + size > proc->sz) && (addr < top_of_stack))) {
+    cprintf("argptr ");
+    cprintf("addr: %d, addr+size: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, addr+size, USERTOP, proc->sz, top_of_stack);
     return -1;
+  }
   *pp = (char*)i;
   return 0;
 }

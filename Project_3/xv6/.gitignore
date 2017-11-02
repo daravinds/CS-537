@@ -26,6 +26,8 @@ xv6memfs.img
 bootother
 initcode
 TAGS
+kernel/tags
+tags
 .gdbinit
 fs/
 kernel/vectors.S

@@ -67,7 +67,7 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-
+  p->stack_sz = 0;
   return p;
 }
 
@@ -109,10 +109,16 @@ growproc(int n)
   uint sz;
   
   sz = proc->sz;
+  cprintf("Allocate %d\n", sz);
   if(n > 0){
+    cprintf(">0\n");
+    // int code_heap_page_count = PGROUNDUP(sz)/PGSIZE;
+    // int guard_page_count = 5;
+    // int grow_page_count = PGROUNDUP(sz)/PGSIZE;
     if((sz = allocuvm(proc->pgdir, sz, sz + n)) == 0)
       return -1;
   } else if(n < 0){
+    cprintf(">0\n");
     if((sz = deallocuvm(proc->pgdir, sz, sz + n)) == 0)
       return -1;
   }
@@ -142,6 +148,7 @@ fork(void)
     return -1;
   }
   np->sz = proc->sz;
+  np->stack_sz = proc->stack_sz;
   np->parent = proc;
   *np->tf = *proc->tf;
 
