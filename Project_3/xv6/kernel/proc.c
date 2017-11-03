@@ -109,16 +109,18 @@ growproc(int n)
   uint sz;
   
   sz = proc->sz;
-  cprintf("Allocate %d\n", sz);
   if(n > 0){
-    cprintf(">0\n");
-    // int code_heap_page_count = PGROUNDUP(sz)/PGSIZE;
-    // int guard_page_count = 5;
-    // int grow_page_count = PGROUNDUP(sz)/PGSIZE;
+    int sz_pages = PGROUNDUP(sz)/PGSIZE;
+    int guard_pages = 5;
+    int mem_in_new_pages = PGROUNDUP(n - (PGROUNDUP(sz) - sz))/PGSIZE;
+    int stack_pages = proc->stack_sz/PGSIZE;
+    // cprintf("sz: %d, n: %d\n", sz, n);
+    // cprintf("sz_pages: %d, guard_pages: %d, mem_in_new_pages: %d, stack_pages: %d\n", sz_pages, guard_pages, mem_in_new_pages, stack_pages);
+    if((sz_pages + guard_pages + mem_in_new_pages + stack_pages) > 160)
+      return -1;
     if((sz = allocuvm(proc->pgdir, sz, sz + n)) == 0)
       return -1;
   } else if(n < 0){
-    cprintf(">0\n");
     if((sz = deallocuvm(proc->pgdir, sz, sz + n)) == 0)
       return -1;
   }

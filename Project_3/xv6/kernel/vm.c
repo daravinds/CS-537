@@ -235,7 +235,6 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
     return 0;
   if(newsz < oldsz)
     return oldsz;
-
   a = PGROUNDUP(oldsz);
   for(; a < newsz; a += PGSIZE){
     mem = kalloc();

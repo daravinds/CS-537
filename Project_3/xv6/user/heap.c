@@ -15,7 +15,6 @@
 int
 main(int argc, char *argv[])
 {
-  printf(1,"In main\n");
   uint sz = (uint) sbrk(0);
   uint stackpage = (160 - 1) * 4096;
   uint guardpage = stackpage - 5 * 4096;
@@ -24,7 +23,6 @@ main(int argc, char *argv[])
   *(char*)stackpage = 'a';
 
   // full use of heap possible
-  printf(1, "Get %d\n", guardpage - sz);
   assert((int) sbrk(guardpage - sz) != -1);
 
   // but not into guardpage
