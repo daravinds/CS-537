@@ -110,14 +110,18 @@ growproc(int n)
   
   sz = proc->sz;
   if(n > 0){
-    int sz_pages = PGROUNDUP(sz)/PGSIZE;
-    int guard_pages = 5;
-    int mem_in_new_pages = PGROUNDUP(n - (PGROUNDUP(sz) - sz))/PGSIZE;
-    int stack_pages = proc->stack_sz/PGSIZE;
+    uint fwd_growing_address = proc->sz + n;
+    uint backward_growing_address = USERTOP - proc->stack_sz - 5*PGSIZE;
+    if(fwd_growing_address > backward_growing_address)
+      return -1; 
+    // int sz_pages = PGROUNDUP(sz)/PGSIZE;
+    // int guard_pages = 5;
+    // int mem_in_new_pages = PGROUNDUP(n - (PGROUNDUP(sz) - sz))/PGSIZE;
+    // int stack_pages = proc->stack_sz/PGSIZE;
     // cprintf("sz: %d, n: %d\n", sz, n);
     // cprintf("sz_pages: %d, guard_pages: %d, mem_in_new_pages: %d, stack_pages: %d\n", sz_pages, guard_pages, mem_in_new_pages, stack_pages);
-    if((sz_pages + guard_pages + mem_in_new_pages + stack_pages) > 160)
-      return -1;
+    // if((sz_pages + guard_pages + mem_in_new_pages + stack_pages) > 160)
+    //  return -1;
     if((sz = allocuvm(proc->pgdir, sz, sz + n)) == 0)
       return -1;
   } else if(n < 0){
@@ -125,6 +129,20 @@ growproc(int n)
       return -1;
   }
   proc->sz = sz;
+  switchuvm(proc);
+  return 0;
+}
+
+int
+growstack(void)
+{
+  uint stack_sz;
+  stack_sz = proc->stack_sz;
+  if ((USERTOP - (stack_sz + PGSIZE + 5 * PGSIZE)) < proc->sz)
+    return -1;
+  if((stack_sz = allocuvm(proc->pgdir, USERTOP - (proc->stack_sz + PGSIZE), USERTOP - proc->stack_sz)) == 0)
+    return -1;
+  proc->stack_sz += PGSIZE;
   switchuvm(proc);
   return 0;
 }
@@ -143,7 +161,7 @@ fork(void)
     return -1;
 
   // Copy process state from p.
-  if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
+  if((np->pgdir = copyuvm(proc->pgdir, proc->sz, proc->stack_sz)) == 0){
     kfree(np->kstack);
     np->kstack = 0;
     np->state = UNUSED;

@@ -20,8 +20,8 @@ fetchint(struct proc *p, uint addr, int *ip)
 
   uint top_of_stack = USERTOP - p->stack_sz;
   if(addr < PGSIZE*2 || addr >= USERTOP || addr+4 > USERTOP || ((addr >= p->sz || addr+4 > p->sz) && (addr < top_of_stack))) {
-    cprintf("fetchint ");
-    cprintf("addr: %d, addr+4: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, addr+4, USERTOP, p->sz, top_of_stack);
+    // cprintf("fetchint ");
+    // cprintf("addr: %d, addr+4: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, addr+4, USERTOP, p->sz, top_of_stack);
     return -1;
   }
   *ip = *(int*)(addr);
@@ -37,8 +37,8 @@ fetchstr(struct proc *p, uint addr, char **pp)
   uint top_of_stack = USERTOP - p->stack_sz;
   char *s, *ep;
   if(addr < PGSIZE*2 || addr >= USERTOP || ((addr >= p->sz) && (addr < top_of_stack))) {
-    cprintf("fetchstr ");
-    cprintf("addr: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, USERTOP, p->sz, top_of_stack);
+    // cprintf("fetchstr ");
+    // cprintf("addr: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, USERTOP, p->sz, top_of_stack);
     return -1;
   }
   *pp = (char*)addr;
@@ -76,8 +76,8 @@ argptr(int n, char **pp, int size)
   uint addr = (uint)i;
   // cprintf("i: %d, proc->sz: %d, size: %d\n", (uint)i, proc->sz, size);
   if(addr < PGSIZE*2 || addr >= USERTOP || addr + size > USERTOP  || ((addr >= proc->sz || addr + size > proc->sz) && (addr < top_of_stack))) {
-    cprintf("argptr ");
-    cprintf("addr: %d, addr+size: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, addr+size, USERTOP, proc->sz, top_of_stack);
+    // cprintf("argptr ");
+    // cprintf("addr: %d, addr+size: %d, USERTOP: %d, p->sz: %d, top_of_stack: %d\n", addr, addr+size, USERTOP, proc->sz, top_of_stack);
     return -1;
   }
   *pp = (char*)i;

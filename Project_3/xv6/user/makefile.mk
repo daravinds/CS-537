@@ -16,8 +16,6 @@ USER_PROGS := \
 	tester\
 	usertests\
 	wc\
-	fault\
-	heap\
 	zombie
 
 USER_PROGS := $(addprefix user/, $(USER_PROGS))
