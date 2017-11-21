@@ -27,6 +27,9 @@ int sleep(int);
 int uptime(void);
 int clone(void(*fcn)(void*), void *arg, void *stack);
 int join(void** stack);
+int cond_init(cond_t *cv);
+int cond_wait(cond_t *cv, lock_t *lock);
+int cond_signal(cond_t *cv);
 
 // user library functions (ulib.c)
 int stat(char*, struct stat*);
@@ -48,5 +51,6 @@ int thread_join(void);
 void lock_init(lock_t *lock);
 void lock_acquire(lock_t *lock);
 void lock_release(lock_t *lock);
+
 #endif // _USER_H_
 

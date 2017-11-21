@@ -176,7 +176,6 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   // Allocate process.
   if((np = allocproc()) == 0)
     return -1;
-
   // Copy process state from p.
   np->stack = stack;
   np->pgdir = proc->pgdir;
@@ -186,7 +185,6 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   // Clear %eax so that fork returns 0 in the child.
   *(stack1 - 1) = (uint) arg;
   *(stack1 - 2) = 0xffffffff;
-
   np->tf->eax = 0;
   np->tf->esp = (uint) (stack1 - 2);
   np->tf->ebp = np->tf->esp;
@@ -317,7 +315,7 @@ join(void** stack)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
-        *((char**) stack) = p->stack;
+        *(stack) = p->stack;
         release(&ptable.lock);
         return pid;
       }
@@ -332,6 +330,57 @@ join(void** stack)
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
     sleep(proc, &ptable.lock);  //DOC: wait-sleep
   }
+}
+
+void cond_init(cond_t *cv)
+{
+  cv->front= 0;
+  cv->rear = 0;
+  cv->empty = 1;
+  cv->lock->flag = 0;
+}
+
+void cond_wait(cond_t *cv, lock_t *lock)
+{
+  while(xchg(&cv->lock->flag, 1) == 1);
+  if(cv->front == cv->rear && !cv->empty)
+  {
+    xchg(&cv->lock->flag, 0);
+    xchg(&lock->flag, 0);
+    panic("queue is full!");
+  }
+  cv->pids[cv->rear] = proc->pid;
+  cv->rear = (cv->rear + 1) % NTHREADS;
+  cv->empty = 0;
+  xchg(&cv->lock->flag, 0);
+  acquire(&ptable.lock);
+  xchg(&lock->flag, 0);  
+  sleep(proc, &ptable.lock);
+  release(&ptable.lock);
+  while(xchg(&lock->flag, 1) == 1);
+}
+
+void cond_signal(cond_t *cv)
+{
+  struct proc *p;
+  while(xchg(&cv->lock->flag, 1) == 1);
+  if(cv->empty) {
+    xchg(&cv->lock->flag, 0);
+    return;
+  }
+  int pid = cv->pids[cv->front];
+  cv->front = (cv->front + 1) % NTHREADS;
+  if(cv->front == cv->rear)
+    cv->empty = 1;
+  xchg(&cv->lock->flag, 0);
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    if(p->pid == pid){
+      release(&ptable.lock);
+      wakeup(p->chan);
+      return;
+    }
+  release(&ptable.lock);
 }
 
 // Per-CPU process scheduler.

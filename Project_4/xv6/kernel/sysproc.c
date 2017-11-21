@@ -95,25 +95,54 @@ sys_clone(void)
   void *fcn;
   void *arg;
   void *stack;
-  //cprintf("1 ");
   if(argptr(0, (char **) &fcn, sizeof(*fcn)) < 0)
     return -1;
-  //cprintf("2 ");
   if(argptr(1, (char **) &arg, sizeof(*arg)) < 0)
     return -1;
-  //cprintf("3 ");
-  if(argptr(2, (char **) &stack, sizeof(char*)) < 0)
+  if(argptr(2, (char **) &stack, PGSIZE) < 0)
     return -1;
-  //cprintf("4 \n");
   return clone(fcn, arg, stack);
 }
 
 int
 sys_join(void)
 {
-  void* stack;
+  void** stack;
   if(argptr(0, (char **) &stack, sizeof(char*)) < 0)
     return -1;
-  int pid = join(&stack);
+  int pid = join(stack);
   return pid;
+}
+
+int
+sys_cond_init(void)
+{
+  cond_t* cond;
+  if(argptr(0, (char**) &cond, sizeof(cond_t)) < 0)
+    return -1;
+  cond_init(cond);
+  return 0;
+}
+
+int
+sys_cond_wait(void)
+{
+  cond_t* cond;
+  lock_t* lock;
+  if(argptr(0, (char**) &cond, sizeof(cond_t)) < 0)
+    return -1;
+  if(argptr(1, (char**) &lock, sizeof(lock_t)) < 0)
+    return -1;
+  cond_wait(cond, lock);
+  return 0;
+}
+
+int
+sys_cond_signal(void)
+{
+  cond_t* cond;
+  if(argptr(0, (char**) &cond, sizeof(cond_t)) < 0)
+    return -1;
+  cond_signal(cond);
+  return 0;
 }

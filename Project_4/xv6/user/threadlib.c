@@ -4,25 +4,19 @@
 int thread_create(void(*fcn)(void*), void *arg)
 {
   void* stack = malloc(4096);
-  if(stack == NULL) {
-    printf(1, "stack alloc failed\n");
+  if(stack == NULL)
     return -1;
-  }
   else {
-    printf(1, "alloc ");
     return clone(fcn, arg, stack);
   }
 }
 int thread_join(void)
 {
   int pid;
-  void* stack = malloc(sizeof(void*));
+  void* stack;
   pid = join(&stack);
-  //printf(1, "PID in thread_join: %d\n", pid);
-  if(pid != -1) {
-    printf(1, "free ");
+  if(pid != -1)
     free(stack);
-  }
   return pid;  
 }
 
@@ -36,5 +30,5 @@ void lock_acquire(lock_t *lock)
 }
 void lock_release(lock_t *lock)
 {
-  lock->flag = 0;
+  xchg(&lock->flag, 0);
 }

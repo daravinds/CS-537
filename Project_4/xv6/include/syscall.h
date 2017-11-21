@@ -25,5 +25,8 @@
 #define SYS_uptime 21
 #define SYS_clone  22
 #define SYS_join   23
+#define SYS_cond_init 24
+#define SYS_cond_wait 25
+#define SYS_cond_signal 26
 
 #endif // _SYSCALL_H_

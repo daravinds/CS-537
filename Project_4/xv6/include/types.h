@@ -16,7 +16,9 @@ typedef struct __lock_t {
 } lock_t;
 
 typedef struct __cond_t {
- uint flag;
+  int front, rear, empty;
+  int pids[8];
+  lock_t *lock;
 } cond_t;
 
 #endif //_TYPES_H_
