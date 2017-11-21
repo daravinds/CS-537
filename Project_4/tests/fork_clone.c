@@ -1,4 +1,4 @@
-/* threads should be able to clone as well */
+/* threads across processes should not share data */
 #include "types.h"
 #include "user.h"
 
@@ -17,17 +17,22 @@ int global = 0;
 }
 
 void worker(void *arg_ptr);
-void worker2(void *arg_ptr);
 
 int
 main(int argc, char *argv[])
 {
+   int p;
    ppid = getpid();
-
-   assert(thread_create(worker, 0) > 0);
-   assert(thread_join() > 0);
-   assert(global == 100);
-
+   for (p=0; p<2; p++) {
+       if (fork() == 0) {
+           assert(global == 0);
+           assert(thread_create(worker, 0) > 0);
+           assert(thread_join() > 0);
+           assert(global == 100);
+           exit();
+       }
+   }
+   for (p=0;p<2;p++) wait();
    printf(1, "TEST PASSED\n");
    exit();
 
@@ -35,14 +40,7 @@ main(int argc, char *argv[])
 
 void
 worker(void *arg_ptr) {
-    assert(thread_create(worker2, arg_ptr) > 0);
-    assert(thread_join() > 0);
-    assert(global == 100);
-}
-
-void
-worker2(void *arg_ptr) {
     int i;
-    for (i = 0; i < 100; i++)
-	global++;
+    for (i=0;i<100;i++)
+        global++;
 }
