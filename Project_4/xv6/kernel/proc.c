@@ -171,17 +171,18 @@ clone(void(*fcn)(void*), void *arg, void *stack)
 {
   int i, pid;
   struct proc *np;
-
   uint* stack1 = stack + PGSIZE;
-  // Allocate process.
+  // Allocate thread.
   if((np = allocproc()) == 0)
     return -1;
-  // Copy process state from p.
+
+  // Copy process state from parent (p).
   np->stack = stack;
   np->pgdir = proc->pgdir;
   np->sz = proc->sz;
   np->parent = proc;
   *np->tf = *proc->tf;
+
   // Clear %eax so that fork returns 0 in the child.
   *(stack1 - 1) = (uint) arg;
   *(stack1 - 2) = 0xffffffff;
@@ -306,7 +307,6 @@ join(void** stack)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
-        // Found one.
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
@@ -315,7 +315,7 @@ join(void** stack)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
-        *(stack) = p->stack;
+        *stack = p->stack;
         release(&ptable.lock);
         return pid;
       }
@@ -343,15 +343,18 @@ void cond_init(cond_t *cv)
 void cond_wait(cond_t *cv, lock_t *lock)
 {
   while(xchg(&cv->lock->flag, 1) == 1);
+
   if(cv->front == cv->rear && !cv->empty)
   {
     xchg(&cv->lock->flag, 0);
     xchg(&lock->flag, 0);
     panic("queue is full!");
   }
+
   cv->pids[cv->rear] = proc->pid;
   cv->rear = (cv->rear + 1) % NTHREADS;
   cv->empty = 0;
+
   xchg(&cv->lock->flag, 0);
   acquire(&ptable.lock);
   xchg(&lock->flag, 0);  
@@ -364,14 +367,17 @@ void cond_signal(cond_t *cv)
 {
   struct proc *p;
   while(xchg(&cv->lock->flag, 1) == 1);
+
   if(cv->empty) {
     xchg(&cv->lock->flag, 0);
     return;
   }
+
   int pid = cv->pids[cv->front];
   cv->front = (cv->front + 1) % NTHREADS;
   if(cv->front == cv->rear)
     cv->empty = 1;
+
   xchg(&cv->lock->flag, 0);
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)

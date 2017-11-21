@@ -6,9 +6,8 @@ int thread_create(void(*fcn)(void*), void *arg)
   void* stack = malloc(4096);
   if(stack == NULL)
     return -1;
-  else {
+  else
     return clone(fcn, arg, stack);
-  }
 }
 int thread_join(void)
 {
@@ -17,7 +16,7 @@ int thread_join(void)
   pid = join(&stack);
   if(pid != -1)
     free(stack);
-  return pid;  
+  return pid;
 }
 
 void lock_init(lock_t *lock)

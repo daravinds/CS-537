@@ -99,7 +99,7 @@ sys_clone(void)
     return -1;
   if(argptr(1, (char **) &arg, sizeof(*arg)) < 0)
     return -1;
-  if(argptr(2, (char **) &stack, PGSIZE) < 0)
+  if(argptr(2, (char **) &stack, sizeof(char*)) < 0)
     return -1;
   return clone(fcn, arg, stack);
 }

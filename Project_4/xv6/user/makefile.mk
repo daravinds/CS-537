@@ -16,7 +16,6 @@ USER_PROGS := \
 	tester\
 	usertests\
 	wc\
-        create\
 	zombie
 
 USER_PROGS := $(addprefix user/, $(USER_PROGS))
