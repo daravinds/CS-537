@@ -47,7 +47,7 @@ struct dirent {
 };
 
 void* image_ptr;
-int *data_blocks_marked_in_use, *data_blocks_in_use, *inodes_marked_in_use, *inodes_in_use;
+int *data_blocks_marked_in_use, *data_blocks_in_use, *inodes_marked_in_use, *inodes_in_use, *parent_inode;
 int** children_inodes;
 int print_error_and_exit(char* error) {
   fprintf(stderr, "%s", error);
@@ -62,16 +62,21 @@ int print_error_and_exit(char* error) {
 int check_current_and_parent_entries(int current_inode, struct dinode *dinode) {
   int i, j, current_found = 0, parent_found = 0;
   struct dirent* dirent;
-  
+  int k = 0;
   for(i = 0; i < NDIRECT; i++) {
     dirent = (struct dirent*) (image_ptr + dinode->addrs[i] * BSIZE);
     for(j = 0; j < DPB; j++, dirent++) {
       if(dirent->inum > 0)
-        if((strcmp(dirent->name, ".") != 0) && (strcmp(dirent->name, "..") != 0))
+        if((strcmp(dirent->name, ".") != 0) && (strcmp(dirent->name, "..") != 0)) {
           inodes_in_use[dirent->inum] += 1;
+          children_inodes[current_inode][k++] = dirent->inum; 
+        }
       if(dirent->inum == current_inode && strcmp(dirent->name, ".") == 0)
         current_found = 1;
-      if(strcmp(dirent->name, "..") == 0) parent_found = 1;
+      if(strcmp(dirent->name, "..") == 0) {
+        parent_inode[current_inode] = dirent->inum;
+        parent_found = 1;
+      }
     }
   }
   uint* indirect_block_ptr;
@@ -80,13 +85,19 @@ int check_current_and_parent_entries(int current_inode, struct dinode *dinode) {
     dirent = (struct dirent*) (image_ptr + *indirect_block_ptr * BSIZE);
     for(j = 0; j < DPB; j++, dirent++)
       if(dirent->inum > 0)
-        if((strcmp(dirent->name, ".") != 0) && (strcmp(dirent->name, "..") != 0))
+        if((strcmp(dirent->name, ".") != 0) && (strcmp(dirent->name, "..") != 0)) {
           inodes_in_use[dirent->inum] += 1;
+          children_inodes[current_inode][k++] = dirent->inum;
+        }
       if(dirent->inum == current_inode && strcmp(dirent->name, ".") == 0)
         current_found = 1;
-      if(strcmp(dirent->name, "..") == 0) parent_found = 1;
+      if(strcmp(dirent->name, "..") == 0) {
+        parent_inode[current_inode] = dirent->inum;
+        parent_found = 1;
+      }
   }
   inodes_in_use[1] = 1;
+  children_inodes[current_inode][k] = 0;
   return current_found && parent_found;
 }
 
@@ -113,6 +124,15 @@ int main(int argc, char *argv[]) {
   assert(inodes_marked_in_use != NULL);
   inodes_in_use = (int *) malloc(sb->ninodes * sizeof(int));
   assert(inodes_in_use != NULL);
+  parent_inode = (int *) malloc(sb->ninodes * sizeof(int));
+  assert(parent_inode != NULL);
+  children_inodes = (int**) malloc(sb->ninodes * sizeof(int*));
+  assert(children_inodes != NULL);
+  for(i = 0; i < sb->ninodes; i++) {
+    children_inodes[i] = (int *) malloc(sb->ninodes * sizeof(int));
+    assert(children_inodes[i] != NULL);
+  }
+
 
   struct dinode* inode_table_ptr = (struct dinode*) (image_ptr + 2*BSIZE);
   struct dirent* dirent;
@@ -208,6 +228,27 @@ int main(int argc, char *argv[]) {
     if(data_blocks_in_use[i] > 1)
       print_error_and_exit("ERROR: direct address used more than once.\n");
   }
-
+  inode_table_ptr = (struct dinode*) (image_ptr + 2 * BSIZE);
+  for(i = 0; i < sb->ninodes; i++, inode_table_ptr++) {
+/*    
+    printf("Inode (%d): %d -----> Parent: %d\n", inode_table_ptr->type, i, parent_inode[i]);
+    for(j = 0; j < sb->ninodes && children_inodes[i][j]; j++)
+      printf("%d ", children_inodes[i][j]);
+    printf("\n");
+*/
+    k = 0;
+    parent_found = 0;
+    if((inode_table_ptr->type == T_DIR) && (parent_inode[i] != 0) && (i > 1)) {
+      while(children_inodes[parent_inode[i]][k] != 0) {
+        if(i == children_inodes[parent_inode[i]][k]) {
+          parent_found = 1;
+          break;
+        }
+        k++;
+      }
+      if(parent_found == 0)
+        print_error_and_exit("ERROR: parent directory mismatch.\n");
+    }
+  }
   exit(0);
 }
