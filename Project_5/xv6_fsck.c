@@ -229,7 +229,8 @@ int main(int argc, char *argv[]) {
       print_error_and_exit("ERROR: direct address used more than once.\n");
   }
   inode_table_ptr = (struct dinode*) (image_ptr + 2 * BSIZE);
-  for(i = 0; i < sb->ninodes; i++, inode_table_ptr++) {
+  int parent_node, parent;
+  for(i = 0; i < sb->ninodes; i++, inode_table_ptr++) {  
 /*    
     printf("Inode (%d): %d -----> Parent: %d\n", inode_table_ptr->type, i, parent_inode[i]);
     for(j = 0; j < sb->ninodes && children_inodes[i][j]; j++)
@@ -239,6 +240,12 @@ int main(int argc, char *argv[]) {
     k = 0;
     parent_found = 0;
     if((inode_table_ptr->type == T_DIR) && (parent_inode[i] != 0) && (i > 1)) {
+      parent = i;
+      parent_node = parent_inode[i];
+      while(parent_node != 1 && parent_node != parent)
+        parent_node = parent_inode[parent_node];
+      if(parent_node != 1)
+        print_error_and_exit("ERROR: inaccessible directory exists.\n");
       while(children_inodes[parent_inode[i]][k] != 0) {
         if(i == children_inodes[parent_inode[i]][k]) {
           parent_found = 1;
