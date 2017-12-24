@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #define ROOTINO 1  // root i-number
 #define BSIZE 512  // block size
@@ -47,16 +48,21 @@ struct dirent {
 };
 
 void* image_ptr;
-int *data_blocks_marked_in_use, *data_blocks_in_use, *inodes_marked_in_use, *inodes_in_use, *parent_inode;
+int *data_blocks_marked_in_use, *data_blocks_in_use, *inodes_marked_in_use, *inodes_in_use, *parent_inode, *lost_inode, *is_directory;
 int** children_inodes;
-int print_error_and_exit(char* error) {
-  fprintf(stderr, "%s", error);
-  /* free(data_blocks_marked_in_use);
+int repair = 0;
+
+void print_error_and_exit(char* error) {
+  if(repair == 0) {
+    fprintf(stderr, "%s", error);
+    exit(1);
+  }
+/* 
+  free(data_blocks_marked_in_use);
   free(data_blocks_in_use);
   free(inodes_marked_in_use);
   free(inodes_in_use);
 */
-  exit(1);
 }
 
 int check_current_and_parent_entries(int current_inode, struct dinode *dinode) {
@@ -102,17 +108,34 @@ int check_current_and_parent_entries(int current_inode, struct dinode *dinode) {
 }
 
 int main(int argc, char *argv[]) {
-  int return_code, i, j, k, root_found = 0, parent_found = 0;
+  int return_code, i, j, k, root_found = 0, parent_found = 0, l_f = 0;
   if(argc < 2)
     print_error_and_exit("Usage: xv6_fsck <file_system_image>\n");
-  int image_file = open(argv[1], O_RDONLY);  
+  int c;
+  while((c = getopt(argc, argv, "r::")) != -1) {
+    repair = repair || (c == 'r');
+  }
+  int image_file;
+  char* name = argv[argc - 1];
+  if(repair == 1) {
+    image_file = open(name, O_RDWR);
+  }
+  else {
+    image_file = open(name, O_RDONLY);
+  }
+
   if(image_file < 0)
     print_error_and_exit("image not found.\n");
 
   struct stat image_file_status;
   return_code = fstat(image_file, &image_file_status);
   assert(return_code == 0);  
-  image_ptr = mmap(NULL, image_file_status.st_size, PROT_READ, MAP_PRIVATE, image_file, 0);
+  if(repair == 0) {
+    image_ptr = mmap(NULL, image_file_status.st_size, PROT_READ, MAP_PRIVATE, image_file, 0);
+  }
+  else {
+    image_ptr = mmap(NULL, image_file_status.st_size, PROT_WRITE, MAP_SHARED, image_file, 0);
+  }
   assert(image_ptr != MAP_FAILED);
 
   struct superblock* sb = (struct superblock*) (image_ptr + BSIZE);
@@ -128,11 +151,15 @@ int main(int argc, char *argv[]) {
   assert(parent_inode != NULL);
   children_inodes = (int**) malloc(sb->ninodes * sizeof(int*));
   assert(children_inodes != NULL);
+  lost_inode = (int *) malloc(sb->ninodes * sizeof(int));
+  assert(lost_inode != NULL);
+  is_directory = (int *) malloc(sb->ninodes * sizeof(int));
+  assert(is_directory != NULL);
+
   for(i = 0; i < sb->ninodes; i++) {
     children_inodes[i] = (int *) malloc(sb->ninodes * sizeof(int));
     assert(children_inodes[i] != NULL);
   }
-
 
   struct dinode* inode_table_ptr = (struct dinode*) (image_ptr + 2*BSIZE);
   struct dirent* dirent;
@@ -146,6 +173,7 @@ int main(int argc, char *argv[]) {
   }
   for(i = 0; i < sb->ninodes; i++) {
     short inode_type = inode_table_ptr->type;
+    is_directory[i] = (inode_type == T_DIR);
     if((inode_type != 0) && (inode_type != 1) && (inode_type != 2) && (inode_type != 3)) {
       print_error_and_exit("ERROR: bad inode.\n");
     } else {
@@ -163,6 +191,8 @@ int main(int argc, char *argv[]) {
         for(k = 0; k < NDIRECT; k++) {
           dirent = (struct dirent*) (image_ptr + inode_table_ptr->addrs[k] * BSIZE);
           for(j = 0; j < DPB; j++, dirent++) {
+            if(strcmp(dirent->name, "lost_found") == 0)
+              l_f = dirent->inum;
             if(dirent->inum == 1) {
               root_found = root_found || (strcmp(dirent->name, ".") == 0);
               parent_found = parent_found || (strcmp(dirent->name, "..") == 0);
@@ -202,8 +232,14 @@ int main(int argc, char *argv[]) {
       if(inodes_in_use[i] > 1)
         print_error_and_exit("ERROR: directory appears more than once in file system.\n");
     // printf("%d: %d, inodes_marked_in_use: %d, inodes_in_use: %d\n", i, inode_table_ptr->type, inodes_marked_in_use[i], inodes_in_use[i]);
-    if(inodes_marked_in_use[i] > 0 && inodes_in_use[i] == 0)
+    if(inodes_marked_in_use[i] > 0 && inodes_in_use[i] == 0) {
+      lost_inode[i] = 1;
+      int p;
+      for(p = 0; p < NDIRECT && repair; p++) {
+        
+      }
       print_error_and_exit("ERROR: inode marked use but not found in a directory.\n");
+    }
     if(inodes_marked_in_use[i] == 0 && inodes_in_use[i] > 0)
       print_error_and_exit("ERROR: inode referred to in directory but marked free.\n");
   }
@@ -229,7 +265,7 @@ int main(int argc, char *argv[]) {
       print_error_and_exit("ERROR: direct address used more than once.\n");
   }
   inode_table_ptr = (struct dinode*) (image_ptr + 2 * BSIZE);
-  int parent_node, parent;
+  int parent_node;
   for(i = 0; i < sb->ninodes; i++, inode_table_ptr++) {  
 /*    
     printf("Inode (%d): %d -----> Parent: %d\n", inode_table_ptr->type, i, parent_inode[i]);
@@ -239,13 +275,7 @@ int main(int argc, char *argv[]) {
 */
     k = 0;
     parent_found = 0;
-    if((inode_table_ptr->type == T_DIR) && (parent_inode[i] != 0) && (i > 1)) {
-      parent = i;
-      parent_node = parent_inode[i];
-      while(parent_node != 1 && parent_node != parent)
-        parent_node = parent_inode[parent_node];
-      if(parent_node != 1)
-        print_error_and_exit("ERROR: inaccessible directory exists.\n");
+    if((inode_table_ptr->type == T_DIR) && (i > 1)) {
       while(children_inodes[parent_inode[i]][k] != 0) {
         if(i == children_inodes[parent_inode[i]][k]) {
           parent_found = 1;
@@ -255,7 +285,40 @@ int main(int argc, char *argv[]) {
       }
       if(parent_found == 0)
         print_error_and_exit("ERROR: parent directory mismatch.\n");
+  
+      parent_node = parent_inode[i];
+      for(j = 0; j < sb->ninodes; j++)
+        parent_node = parent_inode[parent_node];
+      if(parent_node != 1)
+        print_error_and_exit("ERROR: inaccessible directory exists.\n");
     }
+  }
+  if(repair) {
+    inode_table_ptr = (struct dinode*) (image_ptr + 2 * BSIZE);
+    inode_table_ptr += l_f;
+    struct dirent *ptr_to_write= (struct dirent *) (image_ptr + inode_table_ptr->addrs[0] * BSIZE);
+    ptr_to_write += 2;
+    inode_table_ptr = (struct dinode*) (image_ptr + 2 * BSIZE);
+    for(j = 0; j < sb->ninodes; j++) {
+      if(lost_inode[j]) {
+        ptr_to_write->inum = j;
+        sprintf(ptr_to_write->name, "repair_%d", j);
+        ptr_to_write++;
+        if(is_directory[j]) {
+	  struct dinode* d = (struct dinode*) (image_ptr + 2 * BSIZE);
+          d += j;
+          struct dirent* d2 = (struct dirent*) (image_ptr+ d->addrs[0] * BSIZE);
+          int p;
+          
+          for(p = 0; p < DPB; p++, d2++) {
+            if(strcmp(d2->name, "..") == 0) {
+	      d2->inum = l_f;
+		break;
+            }
+          }
+        }
+      }
+    } 
   }
   exit(0);
 }
